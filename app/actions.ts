@@ -218,6 +218,40 @@ export async function deleteSubtask(_: ActionState, fd: FormData): Promise<Actio
   redirect(`/viec/${str(fd, "task_id")}?tab=viec-con`);
 }
 
+// ---------- Tài liệu ----------
+
+export async function addTaskFile(
+  taskId: string,
+  subtaskId: string | null,
+  path: string,
+  name: string,
+  mime: string,
+  size: number,
+): Promise<ActionState & { id?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("add_task_file", {
+    p_task: taskId,
+    p_subtask: subtaskId,
+    p_path: path,
+    p_name: name,
+    p_mime: mime,
+    p_size: size,
+  });
+  if (error) return { error: friendly(error.message), at: Date.now() };
+  revalidatePath("/", "layout");
+  return { ok: "Đã lưu tài liệu", id: data as string, at: Date.now() };
+}
+
+export async function deleteTaskFile(_: ActionState, fd: FormData): Promise<ActionState> {
+  const supabase = await createClient();
+  const { data: path, error } = await supabase.rpc("delete_task_file", { p_id: str(fd, "id") });
+  if (error) return { error: friendly(error.message), at: Date.now() };
+  // Bản ghi đã xoá nên kho cho phép xoá file; lỗi ở bước này chỉ để lại file thừa, không ảnh hưởng người dùng.
+  if (path) await supabase.storage.from("attachments").remove([path as string]);
+  revalidatePath("/", "layout");
+  return { ok: "Đã xoá tài liệu", at: Date.now() };
+}
+
 // ---------- Thành viên ----------
 
 export async function updateMyName(_: ActionState, fd: FormData) {

@@ -6,13 +6,16 @@ import { Disclosure } from "@/components/Disclosure";
 import { Confirm } from "@/components/Confirm";
 import { MemberSelect } from "@/components/MemberSelect";
 import { Remain } from "@/components/Remain";
+import { FileCards } from "@/components/FileCards";
+import { FileUpload } from "@/components/FileUpload";
 import { getNames, getProfiles, getSupabase, requireMe } from "@/lib/data";
-import { LOG_KIND, PRIORITY, SUB_STATUS, TASK_STATUS, type Subtask, type Task, type TaskLog } from "@/lib/types";
+import { LOG_KIND, PRIORITY, SUB_STATUS, TASK_STATUS, type Subtask, type Task, type TaskFile, type TaskLog } from "@/lib/types";
 import { dueMs, fmtDate, fmtDateTime, fmtDue, fmtTime, todayKey } from "@/lib/time";
 
 const TABS = [
   ["tong-quan", "Tổng quan"],
   ["viec-con", "Việc con"],
+  ["tai-lieu", "Tài liệu"],
   ["lich-su", "Lịch sử"],
 ] as const;
 const KIND_CLS: Record<string, string> = { approve: "approve", reject: "reject", submit: "submit", log: "log" };
@@ -23,7 +26,7 @@ export default async function TaskPage({ params, searchParams }: PageProps<"/vie
   const tab = TABS.some(([k]) => k === tabParam) ? (tabParam as string) : "tong-quan";
 
   const supabase = await getSupabase();
-  const [me, name, members, taskRes, subsRes, logsRes, reqRes] = await Promise.all([
+  const [me, name, members, taskRes, subsRes, logsRes, reqRes, filesRes] = await Promise.all([
     requireMe(),
     getNames(),
     getProfiles(),
@@ -31,6 +34,7 @@ export default async function TaskPage({ params, searchParams }: PageProps<"/vie
     supabase.from("subtasks").select("*").eq("task_id", id),
     supabase.from("task_logs").select("*").eq("task_id", id).order("created_at"),
     supabase.from("subtask_edit_requests").select("subtask_id, subtasks!inner(task_id)").eq("status", "pending").eq("subtasks.task_id", id),
+    supabase.from("task_files").select("*").eq("task_id", id).order("created_at", { ascending: false }),
   ]);
   const t = taskRes.data;
   if (!t) notFound();
@@ -40,6 +44,7 @@ export default async function TaskPage({ params, searchParams }: PageProps<"/vie
   const logs = (logsRes.data ?? []) as TaskLog[];
   const pendingEdit = new Set((reqRes.data ?? []).map((r) => r.subtask_id as string));
   const done = subs.filter((s) => s.status === "done").length;
+  const files = (filesRes.data ?? []) as TaskFile[];
 
   const boss = me.role === "boss";
   const mine = t.created_by === me.id;
@@ -84,6 +89,7 @@ export default async function TaskPage({ params, searchParams }: PageProps<"/vie
           <Link key={k} href={`/viec/${t.id}?tab=${k}`} aria-current={tab === k ? "page" : undefined} replace>
             {l}
             {k === "viec-con" && subs.length ? ` ${done}/${subs.length}` : ""}
+            {k === "tai-lieu" && files.length ? ` ${files.length}` : ""}
           </Link>
         ))}
       </div>
@@ -260,6 +266,25 @@ export default async function TaskPage({ params, searchParams }: PageProps<"/vie
             </div>
           </ActionForm>
         </>
+      )}
+
+      {tab === "tai-lieu" && (
+        <div className="box">
+          <h3>Tài liệu</h3>
+          <p className="muted small" style={{ margin: 0 }}>
+            Tải file lên, Claude sẽ đọc rồi tóm tắt, nêu ý chính và gợi ý việc nên làm tiếp. Gợi ý việc con có thể thêm ngay bằng một
+            nút bấm.
+          </p>
+          <FileUpload taskId={t.id} />
+          <FileCards
+            files={files}
+            me={me}
+            name={name}
+            taskId={t.id}
+            subtaskTitles={subs.map((s) => s.title)}
+            subtaskNames={new Map(subs.map((s) => [s.id, s.title]))}
+          />
+        </div>
       )}
 
       {tab === "lich-su" && (

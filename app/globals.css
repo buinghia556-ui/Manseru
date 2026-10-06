@@ -202,3 +202,19 @@ table.dash tbody tr td a{text-decoration:none;color:inherit;display:block}
 .auth{max-width:420px;margin:0 auto;padding:48px 16px;display:flex;flex-direction:column;gap:18px}
 .auth .box{gap:12px}
 .auth h1{font-size:28px}
+
+/* Tài liệu và tóm tắt của Claude */
+.small{font-size:12.5px}
+.files{display:flex;flex-direction:column;gap:10px}
+.filecard{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.filecard header{display:flex;flex-direction:column;gap:2px;min-width:0}
+.filecard .fname{font-weight:600;color:var(--brand);overflow-wrap:anywhere}
+.filecard .row.end{flex-wrap:wrap;gap:8px}
+.ai{background:var(--sunk);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:0}
+.ai h4{margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.ai ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px;overflow-wrap:anywhere}
+.ai .ai-tag{align-self:flex-start;background:var(--doing-soft);color:var(--doing)}
+.ai ul.suggest{list-style:none;padding:0;gap:6px}
+.ai ul.suggest li{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.ai ul.suggest li>div{min-width:0}
+.ai-wait{margin:0;font-style:italic}

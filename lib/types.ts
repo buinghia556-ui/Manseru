@@ -99,6 +99,7 @@ export const LOG_KIND: Record<string, string> = {
   approve: "Đã duyệt",
   reject: "Trả về",
   subtask: "Việc con",
+  file: "Tài liệu",
 };
 export const SUB_KIND: Record<string, string> = {
   create: "Tạo",
@@ -125,3 +126,31 @@ export const SORTS = {
   old: "Tồn lâu nhất trước",
 } as const;
 export type SortKey = keyof typeof SORTS;
+
+export type SuggestedSubtask = { title: string; note: string };
+
+export type FileAnalysis = {
+  summary: string;
+  points: string[];
+  next_steps: string[];
+  subtasks: SuggestedSubtask[];
+};
+
+export type TaskFile = {
+  id: string;
+  task_id: string;
+  subtask_id: string | null;
+  storage_path: string;
+  name: string;
+  mime: string;
+  size: number;
+  author_id: string;
+  created_at: string;
+  ai_status: "pending" | "running" | "done" | "failed";
+  ai_summary: string;
+  ai_points: string[];
+  ai_next_steps: string[];
+  ai_subtasks: SuggestedSubtask[];
+  ai_error: string;
+  ai_at: string | null;
+};

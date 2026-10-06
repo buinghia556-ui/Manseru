@@ -13,6 +13,8 @@ import { ActionForm } from "@/components/ActionForm";
 import { Disclosure } from "@/components/Disclosure";
 import { Confirm } from "@/components/Confirm";
 import { ImageUpload } from "@/components/ImageUpload";
+import { FileCards } from "@/components/FileCards";
+import { FileUpload } from "@/components/FileUpload";
 import { MemberSelect } from "@/components/MemberSelect";
 import { Remain } from "@/components/Remain";
 import { getNames, getProfiles, getSupabase, requireMe } from "@/lib/data";
@@ -25,6 +27,7 @@ import {
   type SubHistory,
   type Subtask,
   type SubStatus,
+  type TaskFile,
 } from "@/lib/types";
 import { fmtDate, fmtDateTime, fmtDue, fmtTime, isoToLocalInput } from "@/lib/time";
 
@@ -33,7 +36,7 @@ const KIND_CLS: Record<string, string> = { editok: "approve", editno: "reject", 
 export default async function SubtaskPage({ params }: PageProps<"/viec/[id]/con/[subId]">) {
   const { id, subId } = await params;
   const supabase = await getSupabase();
-  const [me, name, members, subRes, taskRes, histRes, attRes, reqRes] = await Promise.all([
+  const [me, name, members, subRes, taskRes, histRes, attRes, reqRes, filesRes, siblingsRes] = await Promise.all([
     requireMe(),
     getNames(),
     getProfiles(),
@@ -42,6 +45,8 @@ export default async function SubtaskPage({ params }: PageProps<"/viec/[id]/con/
     supabase.from("subtask_history").select("*").eq("subtask_id", subId).order("created_at", { ascending: false }),
     supabase.from("subtask_attachments").select("*").eq("subtask_id", subId).order("created_at"),
     supabase.from("subtask_edit_requests").select("*").eq("subtask_id", subId).eq("status", "pending").maybeSingle<EditRequest>(),
+    supabase.from("task_files").select("*").eq("subtask_id", subId).order("created_at", { ascending: false }),
+    supabase.from("subtasks").select("title").eq("task_id", id),
   ]);
   const s = subRes.data;
   const task = taskRes.data;
@@ -49,6 +54,8 @@ export default async function SubtaskPage({ params }: PageProps<"/viec/[id]/con/
   const history = (histRes.data ?? []) as SubHistory[];
   const atts = (attRes.data ?? []) as Attachment[];
   const pe = reqRes.data;
+  const files = (filesRes.data ?? []) as TaskFile[];
+  const siblingTitles = ((siblingsRes.data ?? []) as { title: string }[]).map((x) => x.title);
   const boss = me.role === "boss";
   const activeMembers = members.filter((m) => m.active);
 
@@ -221,6 +228,12 @@ export default async function SubtaskPage({ params }: PageProps<"/viec/[id]/con/
           </button>
         </ActionForm>
         <ImageUpload subtaskId={s.id} />
+      </div>
+
+      <div className="box">
+        <h3>Tài liệu</h3>
+        <FileUpload taskId={task.id} subtaskId={s.id} />
+        <FileCards files={files} me={me} name={name} taskId={task.id} subtaskTitles={siblingTitles} />
       </div>
 
       <ActionForm action={addSubtaskLog} className="box" resetOnOk>

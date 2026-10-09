@@ -132,12 +132,45 @@ select public.decide_subtask_edit((select id from public.subtask_edit_requests w
 select tests.ok((select description = '' from public.subtasks where id = (select v from ids where k = 's1')), 'từ chối thì không đổi');
 select tests.ok((select array_agg(kind order by created_at, kind) @> array['create','status','log','attach','editreq','editok','edit','editno'] from public.subtask_history where subtask_id = (select v from ids where k = 's1')), 'lịch sử việc con đủ các bước');
 
+-- Tài liệu: chỉ ghi nhận file nằm trong thư mục của công việc; chỉ người tải lên hoặc sếp cho đọc lại, xoá.
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select tests.expect_error($$select public.add_task_file((select v from ids where k = 't2'), null, 'khac/files/a.pdf', 'a.pdf')$$, 'không hợp lệ');
+select tests.expect_error($$select public.add_task_file((select v from ids where k = 't2'), null, (select v from ids where k = 't2')::text || '/files/a.pdf', 'a.pdf')$$, 'Không tìm thấy file');
+select tests.expect_error($$select public.add_task_file((select v from ids where k = 't1'), (select v from ids where k = 's1'), 'x', 'a.pdf')$$, 'không thuộc');
+insert into storage.objects (bucket_id, name) values ('attachments', (select v from ids where k = 't2')::text || '/files/a.pdf'), ('attachments', (select v from ids where k = 't2')::text || '/files/b.docx');
+insert into ids select 'f1', public.add_task_file((select v from ids where k = 't2'), null, (select v from ids where k = 't2')::text || '/files/a.pdf', 'a.pdf', 'application/pdf', 1000);
+insert into ids select 'f2', public.add_task_file((select v from ids where k = 't2'), (select v from ids where k = 's1'), (select v from ids where k = 't2')::text || '/files/b.docx', 'b.docx', '', 10);
+select tests.ok(public.start_file_analysis((select v from ids where k = 'f1')), 'bắt đầu đọc file');
+select tests.ok(not public.start_file_analysis((select v from ids where k = 'f1')), 'không đọc một file hai lần cùng lúc');
+select public.save_file_analysis((select v from ids where k = 'f1'), true, 'Tóm tắt', '["ý chính"]', '["bước tiếp"]', '[{"title":"Gọi khách","note":""}]');
+select tests.ok((select ai_status = 'done' and ai_summary = 'Tóm tắt' and jsonb_array_length(ai_subtasks) = 1 from public.task_files where id = (select v from ids where k = 'f1')), 'lưu tóm tắt và gợi ý');
+select tests.expect_error($$select public.save_file_analysis((select v from ids where k = 'f1'), true, 'Sửa bừa')$$, 'không ở trạng thái đang đọc');
+select tests.expect_error($$update public.task_files set ai_summary = 'x'$$, 'permission denied');
+
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select tests.expect_error($$select public.start_file_analysis((select v from ids where k = 'f1'))$$, 'Chỉ người tải');
+select tests.expect_error($$select public.delete_task_file((select v from ids where k = 'f1'))$$, 'Chỉ người tải');
+delete from storage.objects where name = (select v from ids where k = 't2')::text || '/files/a.pdf';
+select tests.ok(exists (select 1 from storage.objects where name = (select v from ids where k = 't2')::text || '/files/a.pdf'), 'file còn trong app thì không xoá khỏi kho được');
+
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select tests.ok(public.start_file_analysis((select v from ids where k = 'f1')), 'sếp cho đọc lại được');
+select public.save_file_analysis((select v from ids where k = 'f1'), false, p_error => 'Lỗi thử');
+select tests.ok((select ai_status = 'failed' and ai_summary = 'Tóm tắt' from public.task_files where id = (select v from ids where k = 'f1')), 'đọc lỗi vẫn giữ tóm tắt cũ');
+
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select tests.ok(public.delete_task_file((select v from ids where k = 'f1')) = (select v from ids where k = 't2')::text || '/files/a.pdf', 'xoá tài liệu trả về đường dẫn file');
+delete from storage.objects where name = (select v from ids where k = 't2')::text || '/files/a.pdf';
+select tests.ok(not exists (select 1 from storage.objects where name = (select v from ids where k = 't2')::text || '/files/a.pdf'), 'xoá được file không còn trong app');
+select tests.ok((select count(*) = 2 from public.task_logs where task_id = (select v from ids where k = 't2') and kind = 'file'), 'lịch sử ghi thêm và xoá tài liệu');
+
 -- Xoá việc con: chỉ người tạo hoặc sếp.
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 select tests.expect_error($$select public.delete_subtask((select v from ids where k = 's1'))$$, 'Chỉ người tạo');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select public.delete_subtask((select v from ids where k = 's1'));
 select tests.ok((select count(*) = 0 from public.subtask_attachments), 'xoá việc con xoá luôn đính kèm');
+select tests.ok((select count(*) = 0 from public.task_files), 'xoá việc con xoá luôn tài liệu của nó');
 
 -- Người bị khoá mất quyền ngay.
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';

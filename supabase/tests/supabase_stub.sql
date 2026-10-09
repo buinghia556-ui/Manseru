@@ -29,7 +29,7 @@ create table storage.objects (
 alter table storage.objects enable row level security;
 
 grant usage on schema public, auth, storage to anon, authenticated;
-grant select, insert on storage.objects to authenticated;
+grant select, insert, delete on storage.objects to authenticated;
 -- Giống Supabase: mặc định anon/authenticated có mọi quyền trên bảng và hàm mới.
 alter default privileges in schema public grant all on tables to anon, authenticated;
 alter default privileges in schema public grant all on functions to anon, authenticated;
